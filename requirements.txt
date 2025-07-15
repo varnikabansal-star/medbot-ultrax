@@ -1,6 +1,4 @@
 streamlit
 pandas
-numpy
-matplotlib
 scikit-learn
-pyttsx3; sys_platform == "win32"
+altair

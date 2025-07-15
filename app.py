@@ -1,111 +1,86 @@
-# MEDBOT Ultra-X (Restored & Enhanced Version)
-# app.py
-
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.tree import DecisionTreeClassifier
-import pyttsx3
-import datetime
-import random
+import altair as alt
 
-# ------------------ SETUP ------------------
-st.set_page_config(page_title="MEDBOT Ultra-X", layout="centered")
-st.title("🤖 MEDBOT Ultra-X: AI Health Assistant")
-st.markdown("An AI-based tool for basic symptom check, diagnosis & health tips.")
-
-# Language toggle
-lang = st.radio("Choose Language / झीओ भाषा चुनें:", ["English", "Hindi"])
-
-def speak(text):
-    engine = pyttsx3.init()
-    engine.setProperty('rate', 165)
-    engine.say(text)
-    engine.runAndWait()
-
-# ------------------ SYMPTOMS ------------------
-all_symptoms = [
-    "Fever", "Cough", "Headache", "Sore throat", "Fatigue", "Vomiting", "Diarrhea", "Shortness of breath",
-    "Chest pain", "Runny nose", "Muscle pain", "Joint pain", "Rash", "Sneezing", "Loss of smell", "Loss of taste",
-    "Stomach pain", "Dizziness", "Sweating", "Weight loss", "Nausea", "Chills", "Dry mouth", "Blurred vision"
-]
-
-# Symptom Input
-st.subheader("Select your symptoms:")
-selected_symptoms = st.multiselect("", all_symptoms, help="Select all the symptoms you're experiencing")
-
-# ------------------ AI DIAGNOSIS ------------------
-model = DecisionTreeClassifier()
-
-# Dummy training data (for offline demo)
+# Load data (mock data for demo)
 data = pd.DataFrame({
-    "Fever": [1, 0, 1, 1, 0],
-    "Cough": [1, 1, 0, 1, 0],
-    "Headache": [0, 1, 1, 0, 1],
-    "Fatigue": [1, 0, 1, 0, 0],
-    "Diagnosis": ["Flu", "Cold", "Migraine", "COVID-19", "Healthy"]
+    'fever': [1, 0, 1, 1, 0],
+    'cough': [1, 1, 1, 0, 0],
+    'headache': [0, 1, 1, 1, 0],
+    'fatigue': [1, 1, 0, 1, 1],
+    'nausea': [0, 0, 1, 1, 1],
+    'disease': ['Flu', 'Cold', 'COVID-19', 'Malaria', 'Food Poisoning']
 })
 
-X = data.drop("Diagnosis", axis=1)
-y = data["Diagnosis"]
+X = data.drop('disease', axis=1)
+y = data['disease']
+model = DecisionTreeClassifier()
 model.fit(X, y)
 
-def diagnose(symptoms):
-    input_data = {s: 1 if s in symptoms else 0 for s in X.columns}
-    input_df = pd.DataFrame([input_data])
-    return model.predict(input_df)[0]
+# Language toggle
+lang = st.sidebar.radio("Language / भाषा:", ["English", "हिंदी"])
 
+# Title
+if lang == "English":
+    st.title("🧠 MEDBOT Ultra-X - Smart Symptom Checker")
+else:
+    st.title("🧠 MEDBOT Ultra-X - चुक्ग जांच जांच चेकर")
+
+# Symptom input
+symptoms = ['fever', 'cough', 'headache', 'fatigue', 'nausea']
+selected_symptoms = st.multiselect("Select your symptoms:", symptoms)
+
+# Diagnosis button
 if st.button("Diagnose Me"):
-    if not selected_symptoms:
-        st.warning("Please select at least one symptom.")
+    input_data = [1 if symptom in selected_symptoms else 0 for symptom in symptoms]
+    prediction = model.predict([input_data])[0]
+
+    if lang == "English":
+        st.success(f"Based on your symptoms, you may have: {prediction}")
     else:
-        result = diagnose(selected_symptoms)
-        if lang == "English":
-            st.success(f"Based on your symptoms, you may have: {result}")
-            speak(f"Your diagnosis is {result}")
-        else:
-            translations = {"Flu": "जज़काम ", "Cold": "जकन ", "Migraine": "मायग्रेन ", "COVID-19": "कोविड-19", "Healthy": "स्वास्थ्य"}
-            hindi_result = translations.get(result, result)
-            st.success(f"आपकी जांच के आधार पर आपको {hindi_result} हो सकता है")
-            speak(hindi_result)
+        st.success(f"आपके औचिन की आधार पर, आपको यह जब हो सकता है: {prediction}")
 
-# ------------------ HEALTH TIPS ------------------
-st.subheader("💡 Health Tips")
-tips = [
-    "Stay hydrated.", "Get at least 8 hours of sleep.", "Wash your hands regularly.",
-    "Eat fresh fruits and vegetables.", "Avoid self-medication.", "Exercise daily for 30 minutes."
-]
-st.info(random.choice(tips))
+    # Show graph
+    chart_data = pd.DataFrame({"Symptoms": symptoms, "Present": input_data})
+    chart = alt.Chart(chart_data).mark_bar().encode(
+        x='Symptoms', y='Present', color=alt.condition(
+            alt.datum.Present > 0, alt.value('orange'), alt.value('lightgray')
+        )
+    )
+    st.altair_chart(chart, use_container_width=True)
 
-# ------------------ FEEDBACK ------------------
-st.subheader("📝 Feedback")
-with st.form("feedback_form"):
-    name = st.text_input("Your Name")
-    rating = st.slider("Rate MEDBOT", 1, 5)
-    comments = st.text_area("Comments")
-    submitted = st.form_submit_button("Submit")
-    if submitted:
+# Health Tips
+st.markdown("---")
+if lang == "English":
+    st.header("🩺 General Health Tips")
+    st.write("""
+    - Stay hydrated
+    - Eat a balanced diet
+    - Get enough sleep
+    - Exercise regularly
+    - Avoid stress
+    """)
+else:
+    st.header("🩺 सामान्यिक चिकित्सा")
+    st.write("""
+    - पानी पीजें
+    - संतुलित आहार खाएं
+    - पूरी नींद लीजिए
+    - नियमित अभ्यास करें
+    - चिंता का क्याल रखें
+    """)
+
+# Feedback Form
+st.markdown("---")
+if lang == "English":
+    st.subheader("💬 Feedback")
+    feedback = st.text_area("What do you think about MEDBOT Ultra-X?")
+    if st.button("Submit Feedback"):
         st.success("Thank you for your feedback!")
-
-# ------------------ GRAPH ------------------
-st.subheader("📊 Symptom Frequency Chart")
-if selected_symptoms:
-    fig, ax = plt.subplots()
-    counts = [random.randint(10, 100) for _ in selected_symptoms]
-    ax.bar(selected_symptoms, counts, color='skyblue')
-    plt.xticks(rotation=45)
-    st.pyplot(fig)
-
-# ------------------ HISTORY ------------------
-st.subheader("📁 Diagnosis History")
-if "history" not in st.session_state:
-    st.session_state.history = []
-
-if selected_symptoms:
-    time_now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
-    st.session_state.history.append({"time": time_now, "symptoms": selected_symptoms})
-
-if st.checkbox("Show My Past Checks"):
-    for entry in reversed(st.session_state.history):
-        st.write(f"🕒 {entry['time']} - Symptoms: {', '.join(entry['symptoms'])}")
+else:
+    st.subheader("💬 प्रतिक्रिया")
+    feedback = st.text_area("MEDBOT Ultra-X के बारे में अपकी क्या राय है?")
+    if st.button("जमा करें"):
+        st.success("अपका धन्यवाद की लिए धन्यवाद!")
