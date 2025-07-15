@@ -1,5 +1,6 @@
 streamlit
 pandas
-scikit-learn
 numpy
-altair
+scikit-learn
+plotly
+fpdf

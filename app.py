@@ -1,101 +1,123 @@
-# MEDBOT Ultra-X (Advanced Streamlit Web App Version)
-# Author: ChatGPT + Varnika
-
+# MEDBOT Ultra-X Final Version
 import streamlit as st
 import pandas as pd
 import numpy as np
-import altair as alt
+import plotly.express as px
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.model_selection import train_test_split
-import webbrowser
+from sklearn.preprocessing import MultiLabelBinarizer
+from fpdf import FPDF
+import datetime
 
-# Load dataset
-data = pd.read_csv("https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv")
-
-# Train model
-X = data.drop('Outcome', axis=1)
-y = data['Outcome']
-model = DecisionTreeClassifier()
-model.fit(X, y)
-
-# Health tips
-health_tips = {
-    "COVID-19": "Isolate yourself and get tested. Wear a mask and consult a doctor.",
-    "Flu": "Rest, drink plenty of fluids, and consider paracetamol for fever.",
-    "Common Cold": "Use steam inhalation and warm fluids. Avoid cold drinks.",
-    "Allergy": "Avoid allergens. You may take an antihistamine after medical consultation.",
-    "Stomach Ache": "Avoid oily food, stay hydrated, and rest. Seek help if pain increases."
-}
-
-# Hindi Translations (simplified)
-hindi_dict = {
-    "Select symptoms": "लक्षण चुनें",
-    "Diagnose Me": "जांच करें",
-    "Your diagnosis is": "आपका निदान है",
-    "Health Tip": "स्वास्थ्य सुझाव",
-    "Feedback": "प्रतिक्रिया",
-    "Submit": "जमा करें",
-    "Language": "भाषा",
-}
-
-# UI starts here
+# --- CONFIG ---
 st.set_page_config(page_title="MEDBOT Ultra-X", layout="centered")
 
+# --- DARK/LIGHT MODE ---
+st.markdown("""
+    <style>
+        .main { background-color: #f9f9f9; }
+        header { background-color: #f9f9f9; }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- LANGUAGE TOGGLE ---
+lang = st.sidebar.radio("🌐 Language / भाषा:", ["English", "Hindi"])
+translate = lambda e, h: h if lang == "Hindi" else e
+
+# --- SYMPTOMS ---
+symptoms = ["Fever", "Cough", "Fatigue", "Nausea", "Shortness of breath", "Sore throat", "Loss of taste", "Muscle pain"]
+selected_symptoms = st.multiselect(translate("Select Symptoms", "लक्षण चुनें"), symptoms)
+
+# --- DIAGNOSIS MODEL ---
+mlb = MultiLabelBinarizer()
+X_train = mlb.fit_transform([
+    ["Fever", "Cough"],
+    ["Fatigue", "Nausea"],
+    ["Sore throat", "Cough"],
+    ["Loss of taste", "Fever"],
+    ["Shortness of breath", "Muscle pain"]
+])
+y_train = ["Flu", "Food Poisoning", "Cold", "COVID-19", "Asthma"]
+model = DecisionTreeClassifier()
+model.fit(X_train, y_train)
+
+# --- UI HEADER ---
 st.title("🤖 MEDBOT Ultra-X")
-st.markdown("An AI-powered medical assistant for quick symptom diagnosis and health support.")
+st.caption(translate("Your AI-powered medical assistant.", "आपका एआई-सक्षम चिकित्सा सहायक।"))
 
-# Language toggle
-lang = st.radio("Language / भाषा", ["English", "Hindi"])
-translate = lambda x: hindi_dict.get(x, x) if lang == "Hindi" else x
+# --- DIAGNOSIS ---
+if st.button(translate("🔍 Diagnose Me", "🔍 जांच करें")):
+    if selected_symptoms:
+        input_data = mlb.transform([selected_symptoms])
+        result = model.predict(input_data)[0]
+        st.success(translate(f"Possible Condition: {result}", f"संभावित रोग: {result}"))
 
-# Symptoms selection
-symptom_list = ["Fever", "Cough", "Fatigue", "Body Ache", "Sore Throat", "Loss of Smell", "Runny Nose", "Diarrhea"]
-st.markdown(f"### {translate('Select symptoms')}")
-selected = st.multiselect("", symptom_list)
+        # Health Tips
+        tips = {
+            "Flu": "Drink warm fluids and rest well.",
+            "Food Poisoning": "Stay hydrated, eat bland food.",
+            "Cold": "Steam inhalation and rest recommended.",
+            "COVID-19": "Isolate and consult a physician.",
+            "Asthma": "Avoid allergens, use inhaler as prescribed."
+        }
+        st.info(translate("💡 Health Tip:", "💡 स्वास्थ्य सुझाव:") + " " + tips.get(result, "Consult a doctor."))
 
-# Predict button
-if st.button(translate("Diagnose Me")):
-    if len(selected) == 0:
-        st.warning("Please select at least one symptom.")
+        # Home Remedies
+        home = {
+            "Flu": "Tulsi tea, ginger and honey mix.",
+            "Cold": "Steam, turmeric milk.",
+            "Food Poisoning": "ORS, jeera water.",
+            "Asthma": "Steam, avoid cold items."
+        }
+        if result in home:
+            st.warning(translate("🏡 Home Remedy:", "🏡 घरेलू उपाय:") + " " + home[result])
     else:
-        # Fake logic for demo
-        if "Fever" in selected and "Cough" in selected:
-            result = "COVID-19"
-        elif "Fatigue" in selected and "Body Ache" in selected:
-            result = "Flu"
-        elif "Runny Nose" in selected:
-            result = "Common Cold"
-        elif "Sore Throat" in selected:
-            result = "Allergy"
-        elif "Diarrhea" in selected:
-            result = "Stomach Ache"
-        else:
-            result = "Unable to Diagnose"
+        st.error(translate("Please select at least one symptom.", "कृपया कम से कम एक लक्षण चुनें।"))
 
-        st.success(f"{translate('Your diagnosis is')}: {result}")
-
-        if result in health_tips:
-            st.info(f"💡 {translate('Health Tip')}: {health_tips[result]}")
-
-# Health Stats Chart (for visuals)
-st.markdown("### 📊 Symptom Trends (Dummy Data)")
-chart_data = pd.DataFrame({
-    "Day": ["Mon", "Tue", "Wed", "Thu", "Fri"],
-    "Symptom Cases": np.random.randint(10, 50, 5)
-})
-chart = alt.Chart(chart_data).mark_bar().encode(
-    x='Day',
-    y='Symptom Cases',
-    color=alt.Color('Symptom Cases', scale=alt.Scale(scheme='reds'))
-)
-st.altair_chart(chart, use_container_width=True)
-
-# Feedback Form
-st.markdown(f"### {translate('Feedback')}")
-feedback = st.text_area("Share your experience with MEDBOT Ultra-X")
-if st.button(translate("Submit")):
-    st.success("✅ Thanks for your feedback!")
-
-# Footer
+# --- NUTRITION EXPLORER ---
 st.markdown("---")
-st.caption("© 2025 MEDBOT Ultra-X | Human-AI Collaboration Project")
+st.header("🥗 " + translate("Nutrition Explorer", "पोषण जानकारी"))
+food = st.selectbox(translate("Choose a food item:", "भोजन चुनें:"), ["Milk", "Egg", "Banana"])
+nutrition = {
+    "Milk": {"Calories": 42, "Protein": 3.4, "Calcium": 125},
+    "Egg": {"Calories": 78, "Protein": 6, "Cholesterol": 186},
+    "Banana": {"Calories": 89, "Potassium": 358, "Fiber": 2.6},
+}
+if food:
+    df = pd.DataFrame([nutrition[food]])
+    st.table(df)
+
+# --- MOOD & WATER TRACKER ---
+st.markdown("---")
+st.header("📈 " + translate("Mood & Water Tracker", "मूड और पानी ट्रैकर"))
+mood = st.slider(translate("Your Mood Today", "आज का मूड"), 0, 10, 5)
+water = st.slider(translate("Glasses of Water", "पानी के गिलास"), 0, 15, 8)
+chart_df = pd.DataFrame({"Metric": ["Mood", "Water"], "Score": [mood, water]})
+st.plotly_chart(px.bar(chart_df, x="Metric", y="Score", color="Metric", title="Mood & Water Levels"))
+
+# --- PDF GENERATION ---
+def generate_pdf(diagnosis):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(200, 10, txt="MEDBOT Ultra-X Diagnosis Report", ln=1, align="C")
+    pdf.cell(200, 10, txt=f"Date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}", ln=2, align="L")
+    pdf.cell(200, 10, txt=f"Diagnosis: {diagnosis}", ln=3, align="L")
+    pdf.output("medbot_report.pdf")
+    st.success("📄 PDF Report Saved as medbot_report.pdf")
+
+if selected_symptoms:
+    if st.button("📄 Generate PDF Report"):
+        result = model.predict(mlb.transform([selected_symptoms]))[0]
+        generate_pdf(result)
+
+# --- FEEDBACK ---
+st.markdown("---")
+st.header("💬 " + translate("Feedback Form", "प्रतिक्रिया फ़ॉर्म"))
+name = st.text_input(translate("Your Name", "आपका नाम"))
+message = st.text_area(translate("Your Feedback", "आपकी प्रतिक्रिया"))
+if st.button(translate("Submit", "जमा करें")):
+    st.success(translate("Thank you for your feedback!", "आपकी प्रतिक्रिया के लिए धन्यवाद!"))
+
+# --- FOOTER ---
+st.markdown("---")
+st.caption("© 2025 MEDBOT Ultra-X | Human-AI Collaboration | Built with ❤️")
